@@ -1,0 +1,8 @@
+ListeningPort: 5000
+Endpoints:
+  - port: 8081
+    hostname: localhost
+    weight: 1
+  - port: 8082
+    hostname: localhost
+    weight: 1
