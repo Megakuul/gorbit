@@ -1,3 +1,5 @@
+LogOptions: "ERROR|WARNING"
+# LogOptions: "ERROR|WARNING|INFORMATION"
 ListeningPort: 5000
 Endpoints:
   - port: 8081

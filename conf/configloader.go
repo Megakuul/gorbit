@@ -5,14 +5,16 @@ import (
 )
 
 type Config struct {
-	ListeningPort int `mapstructure:"listeningport"`
+	ListeningPort int    `mapstructure:"listeningport"`
+	LogOptions    string `mapstructure:"logoptions"`
 	Endpoints     []Endpoint
 }
 
 type Endpoint struct {
-	Port     int    `mapstructure:"port"`
-	Hostname string `mapstructure:"hostname"`
-	Weight   int    `mapstructure:"weight"`
+	Port       int    `mapstructure:"port"`
+	Hostname   string `mapstructure:"hostname"`
+	Weight     int    `mapstructure:"weight"`
+	Timeout_ms int    `mapstructure:"Timeout_ms"`
 }
 
 func LoadConfig() (Config, error) {
