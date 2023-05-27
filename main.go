@@ -22,11 +22,9 @@ func main() {
 		os.Exit(2)
 	}
 
-	loadBalancer := &handler.LoadBalancer{
-		Sessions: make(map[string]*handler.Session),
-	}
+	go handler.CheckHealth(config.Endpoints, config.HealthCheckIntervall)
 
-	err = listener.Listen(config, loadBalancer.HandleConnection)
+	err = listener.Listen(config)
 	if err != nil {
 		logger.WriteErrLogger(err)
 		os.Exit(2)

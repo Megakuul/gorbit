@@ -1,5 +1,5 @@
-LogOptions: "ERROR|WARNING"
 # LogOptions: "ERROR|WARNING|INFORMATION"
+# BufferSizeKB: 32
 ListeningPort: 5000
 Endpoints:
   - port: 8081

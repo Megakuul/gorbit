@@ -6,42 +6,34 @@ import (
 	"github/megakuul/gorbit/logger"
 	"io"
 	"net"
-	"sync"
-	"time"
 )
 
-type Session struct {
-	Conn         net.Conn
-	Creationtime time.Time
-	Timeout      time.Duration
-}
-
-type LoadBalancer struct {
-	Sessions     map[string]*Session
-	SessionMutex sync.RWMutex
-}
-
-func (lb *LoadBalancer) HandleConnection(srcCon net.Conn, config conf.Config) {
-
-	session := &Session{
-		Conn:         srcCon,
-		Creationtime: time.Now(),
-		Timeout:      time.Duration(config.Endpoints[0].Timeout_ms) * time.Millisecond,
-	}
-
-	lb.SessionMutex.Lock()
-	lb.Sessions[srcCon.LocalAddr().String()] = session
-	lb.SessionMutex.Unlock()
-
-	defer func() {
-		lb.SessionMutex.Lock()
-		delete(lb.Sessions, srcCon.LocalAddr().String())
-		lb.SessionMutex.Unlock()
-	}()
-
+func HandleConnection(srcCon *net.TCPConn, config conf.Config) {
 	defer srcCon.Close()
 
-	dstCon, err := net.Dial("tcp", fmt.Sprintf("%s:%v", config.Endpoints[0].Hostname, config.Endpoints[0].Port))
+	// Fetching the Endpoint
+	index, err := SelectEndpoint(config.Endpoints)
+	if err != nil {
+		logger.WriteWarningLogger(err)
+		return
+	}
+
+	// Append a Session to the Endpoint
+	config.Endpoints[index].MutAppendSession()
+	defer config.Endpoints[index].MutRemoveSession()
+
+	// Create a TCP Address for the desired Endpoint
+	addr, err := net.ResolveTCPAddr("tcp",
+		fmt.Sprintf("%s:%v", config.Endpoints[index].Hostname, config.Endpoints[index].Port),
+	)
+	if err != nil {
+		logger.WriteInformationLogger(
+			fmt.Sprintf("%v", err),
+		)
+	}
+
+	// Create a TCP Connection to the desired Endpoint
+	dstCon, err := net.DialTCP("tcp", nil, addr)
 	defer dstCon.Close()
 	if err != nil {
 		logger.WriteInformationLogger(
@@ -50,17 +42,70 @@ func (lb *LoadBalancer) HandleConnection(srcCon net.Conn, config conf.Config) {
 		return
 	}
 
+	// Redirect dstCon Writer to srcCon Reader
 	go func() {
-		if _, err := io.Copy(dstCon, srcCon); err != nil {
+		if err := RedirectBuffered(dstCon, srcCon, config.BufferSizeKB); err != nil {
 			logger.WriteInformationLogger(
 				fmt.Sprintf("%s", err),
 			)
 		}
 	}()
 
-	if _, err := io.Copy(srcCon, dstCon); err != nil {
+	// Redirect srcCon Writer to dstCon Reader
+	if err := RedirectBuffered(srcCon, dstCon, config.BufferSizeKB); err != nil {
 		logger.WriteInformationLogger(
 			fmt.Sprintf("%s", err),
 		)
+	}
+}
+
+func RedirectBuffered(dst io.Writer, src io.Reader, size_kb int) error {
+	// If the Writer Supports the ReaderFrom interface, it will use this
+	// ReadFrom gives it a massiv performance boost
+	if reader, ok := dst.(io.ReaderFrom); ok {
+		_, err := reader.ReadFrom(src)
+		return err
+	}
+
+	// If the Reader Supports the WriterTo interface, it will use this
+	// WriteTo gives it a massiv performance boost
+	if writer, ok := src.(io.WriterTo); ok {
+		_, err := writer.WriteTo(dst)
+		return err
+	}
+
+	// Initialize buffer
+	buffer := make([]byte, size_kb*1024)
+
+	// Main Read/Write Loop
+	for {
+		bytesRead, er := src.Read(buffer)
+		if bytesRead > 0 {
+			bytesWritten, ew := dst.Write(buffer[0:bytesRead])
+
+			// Catch illegal behaviour
+			if bytesWritten < 0 || bytesWritten > bytesRead {
+				bytesWritten = 0
+				if ew == nil {
+					ew = fmt.Errorf("invalid write operation")
+				}
+			}
+			if ew != nil {
+				return ew
+			}
+			if bytesRead != bytesWritten {
+				return fmt.Errorf(
+					"inconsistent transmission:\n%v bytes read and %v written",
+					bytesRead,
+					bytesWritten,
+				)
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				return er
+			}
+			return nil
+		}
 	}
 }
