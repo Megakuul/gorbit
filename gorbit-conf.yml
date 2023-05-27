@@ -1,10 +1,11 @@
 # LogOptions: "ERROR|WARNING|INFORMATION"
 # BufferSizeKB: 32
+# MaxLogSizeKB: 200
 ListeningPort: 5000
 Endpoints:
   - port: 8081
     hostname: localhost
-    weight: 1
   - port: 8082
     hostname: localhost
-    weight: 1
+  - port: 8083
+    hostname: localhost

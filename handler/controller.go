@@ -7,15 +7,18 @@ import (
 	"time"
 )
 
-func SelectEndpoint(endpoints []conf.Endpoint) (endpointIndex int, err error) {
+func SelectEndpoint(endpoints *[]conf.Endpoint) (endpointIndex int, err error) {
 	selectedIndex := -1
 
-	for i, endpoint := range endpoints {
-		fmt.Printf("%v", endpoint)
-		if !endpoint.Healthy {
+	for i := 0; i < len(*endpoints); i++ {
+		if !(*endpoints)[i].Healthy {
 			continue
 		}
-		if endpoints[selectedIndex].Sessions > endpoint.Sessions {
+		if selectedIndex == -1 {
+			selectedIndex = i
+			continue
+		}
+		if (*endpoints)[selectedIndex].Sessions > (*endpoints)[i].Sessions {
 			selectedIndex = i
 			continue
 		}
@@ -28,20 +31,20 @@ func SelectEndpoint(endpoints []conf.Endpoint) (endpointIndex int, err error) {
 	}
 }
 
-func CheckHealth(endpoints []conf.Endpoint, sintervall int) {
+func CheckHealth(endpoints *[]conf.Endpoint, sintervall int) {
 	for {
-		for _, endpoint := range endpoints {
-			if err := SendHealthCheck(endpoint); err != nil {
-				endpoint.Healthy = false
+		for i := 0; i < len(*endpoints); i++ {
+			if err := SendHealthCheck(&(*endpoints)[i]); err != nil {
+				(*endpoints)[i].Healthy = false
 			} else {
-				endpoint.Healthy = true
+				(*endpoints)[i].Healthy = true
 			}
 		}
 		time.Sleep(time.Duration(sintervall) * time.Second)
 	}
 }
 
-func SendHealthCheck(endpoint conf.Endpoint) error {
+func SendHealthCheck(endpoint *conf.Endpoint) error {
 
 	addr, err := net.ResolveTCPAddr("tcp",
 		fmt.Sprintf("%s:%v", endpoint.Hostname, endpoint.Port),
@@ -52,10 +55,11 @@ func SendHealthCheck(endpoint conf.Endpoint) error {
 
 	// Create a TCP Connection to the desired Endpoint
 	dstCon, err := net.DialTCP("tcp", nil, addr)
-	defer dstCon.Close()
 	if err != nil {
 		return err
 	}
+
+	defer dstCon.Close()
 
 	return nil
 }

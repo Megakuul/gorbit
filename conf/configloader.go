@@ -10,6 +10,7 @@ type Config struct {
 	ListeningPort        int    `mapstructure:"listeningport"`
 	LogOptions           string `mapstructure:"logoptions"`
 	BufferSizeKB         int    `mapstructure:"buffersizekb"`
+	MaxLogSizeKB         int    `mapstructure:"maxlogsizekb"`
 	HealthCheckIntervall int    `mapstructure:"HealthCheckIntervall"`
 	Endpoints            []Endpoint
 }
@@ -17,7 +18,6 @@ type Config struct {
 type Endpoint struct {
 	Port         int    `mapstructure:"port"`
 	Hostname     string `mapstructure:"hostname"`
-	Weight       int    `mapstructure:"weight"`
 	Healthy      bool
 	Sessions     int
 	SessionMutex sync.RWMutex
@@ -44,6 +44,7 @@ func LoadConfig() (Config, error) {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("buffersizekb", 32)
+	viper.SetDefault("maxlogsizekb", 200)
 	viper.SetDefault("HealthCheckIntervall", 5)
 	viper.SetDefault("logoptions", "ERROR|WARNING")
 

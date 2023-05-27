@@ -16,13 +16,13 @@ func main() {
 		os.Exit(2)
 	}
 
-	err = logger.InitLogger("gorbit.log", config.LogOptions)
+	err = logger.InitLogger("gorbit.log", config.LogOptions, config.MaxLogSizeKB)
 	if err != nil {
 		log.Fatalf("[ Gorbit Panic ]:\n%s\n", err)
 		os.Exit(2)
 	}
 
-	go handler.CheckHealth(config.Endpoints, config.HealthCheckIntervall)
+	go handler.CheckHealth(&config.Endpoints, config.HealthCheckIntervall)
 
 	err = listener.Listen(config)
 	if err != nil {

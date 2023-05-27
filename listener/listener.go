@@ -21,7 +21,7 @@ func Listen(config conf.Config) error {
 		return err
 	}
 
-	fmt.Printf("Listening to port %v\n", config.ListeningPort)
+	logger.WriteInformationLogger("Listening to port %v\n", config.ListeningPort)
 
 	for {
 		conn, err := listener.AcceptTCP()

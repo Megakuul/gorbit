@@ -12,7 +12,7 @@ func HandleConnection(srcCon *net.TCPConn, config conf.Config) {
 	defer srcCon.Close()
 
 	// Fetching the Endpoint
-	index, err := SelectEndpoint(config.Endpoints)
+	index, err := SelectEndpoint(&config.Endpoints)
 	if err != nil {
 		logger.WriteWarningLogger(err)
 		return
@@ -21,41 +21,37 @@ func HandleConnection(srcCon *net.TCPConn, config conf.Config) {
 	// Append a Session to the Endpoint
 	config.Endpoints[index].MutAppendSession()
 	defer config.Endpoints[index].MutRemoveSession()
+	fmt.Printf("Added a number, current res: %v", config.Endpoints[index].Sessions)
 
 	// Create a TCP Address for the desired Endpoint
 	addr, err := net.ResolveTCPAddr("tcp",
 		fmt.Sprintf("%s:%v", config.Endpoints[index].Hostname, config.Endpoints[index].Port),
 	)
 	if err != nil {
-		logger.WriteInformationLogger(
-			fmt.Sprintf("%v", err),
-		)
+		logger.WriteInformationLogger("%v", err)
 	}
 
 	// Create a TCP Connection to the desired Endpoint
 	dstCon, err := net.DialTCP("tcp", nil, addr)
-	defer dstCon.Close()
 	if err != nil {
 		logger.WriteInformationLogger(
-			fmt.Sprintf("%s failed to reach %s", srcCon.LocalAddr().String(), dstCon.LocalAddr().String()),
+			"%s failed to reach %s", srcCon.LocalAddr().String(), dstCon.LocalAddr().String(),
 		)
 		return
 	}
 
+	defer dstCon.Close()
+
 	// Redirect dstCon Writer to srcCon Reader
 	go func() {
 		if err := RedirectBuffered(dstCon, srcCon, config.BufferSizeKB); err != nil {
-			logger.WriteInformationLogger(
-				fmt.Sprintf("%s", err),
-			)
+			logger.WriteInformationLogger("%s", err)
 		}
 	}()
 
 	// Redirect srcCon Writer to dstCon Reader
 	if err := RedirectBuffered(srcCon, dstCon, config.BufferSizeKB); err != nil {
-		logger.WriteInformationLogger(
-			fmt.Sprintf("%s", err),
-		)
+		logger.WriteInformationLogger("%s", err)
 	}
 }
 

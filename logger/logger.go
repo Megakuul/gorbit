@@ -13,9 +13,14 @@ var (
 	INFORMATION bool
 )
 
-func InitLogger(logname string, loglevel string) error {
+func InitLogger(logname string, loglevel string, maxlogsize int) error {
 
 	file, err := os.OpenFile(logname, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return err
+	}
+
+	err = clearLog(maxlogsize, file)
 	if err != nil {
 		return err
 	}
@@ -33,9 +38,33 @@ func InitLogger(logname string, loglevel string) error {
 	return nil
 }
 
-func WriteInformationLogger(message string) {
+func clearLog(maxLogSize int, file *os.File) error {
+	fileInfo, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return err
+	}
+
+	if fileInfo.Size() > int64(maxLogSize)*1024 {
+		err = file.Truncate(0)
+		if err != nil {
+			file.Close()
+			return err
+		}
+
+		_, err = file.Seek(0, 0)
+		if err != nil {
+			file.Close()
+			return err
+		}
+	}
+
+	return nil
+}
+
+func WriteInformationLogger(format string, v ...interface{}) {
 	if INFORMATION {
-		log.Printf("\n[ Gorbit Information ]:\n%s\n\n", message)
+		log.Printf("\n[ Gorbit Information ]:\n"+format+"\n", v...)
 	}
 }
 
